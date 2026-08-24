@@ -19,7 +19,7 @@ public class CodeContextRetriever {
     private final VectorStore vectorStore;
     private final CitationMapper citationMapper; 
 
-     public RetrievedContext retrieve(UUID repositoryId, String question) {
+    public RetrievedContext retrieve(UUID repositoryId, String question) {
         var filter = new FilterExpressionBuilder()
                 .eq(RagSettings.METADATA_REPO_ID, repositoryId.toString())
                 .build();
@@ -38,8 +38,12 @@ public class CodeContextRetriever {
                 .toList();
 
         var contextText = documents.stream()
-                .map(Document::getText)
-                .collect(Collectors.joining("\n\n---\n\n"));
+                .map(doc -> {
+                    String path = String.valueOf(doc.getMetadata().getOrDefault("filePath", "file"));
+                    String language = String.valueOf(doc.getMetadata().getOrDefault("language", ""));
+                    return "--- File: " + path + " ---\n" + doc.getText();
+                })
+                .collect(Collectors.joining("\n\n"));
 
         if (contextText.isBlank()) {
             contextText = NO_MATCHES;

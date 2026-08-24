@@ -50,6 +50,13 @@ public class ChatController {
         return chatService.getMessages(userId, id);
     }
 
+    @org.springframework.web.bind.annotation.DeleteMapping("/sessions/{id}")
+    public ResponseEntity<Void> deleteSession(@PathVariable UUID id) {
+        UUID userId = currentUser.require().getId();
+        chatService.deleteSession(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter sendMessage(
             @PathVariable UUID id,

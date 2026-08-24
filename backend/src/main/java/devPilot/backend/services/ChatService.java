@@ -64,6 +64,13 @@ public class ChatService {
         return toSessionResponse(session);
     }
 
+    @Transactional
+    public void deleteSession(UUID userId, UUID sessionId) {
+        ChatSession session = requireSession(userId, sessionId);
+        chatMessageRepository.deleteBySessionId(session.getId());
+        chatSessionRepository.delete(session);
+    }
+
     @Transactional(readOnly = true)
     public List<ChatSessionResponse> listSessions(UUID userId, UUID repositoryId) {
         repoService.requireOwned(repositoryId, userId);

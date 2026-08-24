@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: codesense-backend
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/devpilot?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:your_github_client_id}
+            client-secret: ${GITHUB_CLIENT_SECRET:your_github_client_secret}
+            scope:
+              - read:user
+              - user:email
+              - repo
+        provider:
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+            user-name-attribute: login
+
+  session:
+    timeout: 7d
+
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:your_gemini_api_key}
+        chat:
+          options:
+            model: gemini-3.6-flash
+            temperature: 0.2
+        embedding:
+          api-key: ${GEMINI_API_KEY:your_gemini_api_key}
+          text:
+            model: gemini-embedding-001
+    vectorstore:
+      qdrant:
+        host: ${QDRANT_HOST:your_qdrant_host}
+        port: ${QDRANT_PORT:6334}
+        api-key: ${QDRANT_API_KEY:your_qdrant_api_key}
+        use-tls: true
+        collection-name: codesense-code
+        initialize-schema: true
+        check-compatibility: false
+
+server:
+  port: 8080
+
+app:
+  frontend-url: http://localhost:5173
+  cors:
+    allowed-origins: http://localhost:5173
+  token-encryptor-password: ${TOKEN_ENCRYPTOR_PASSWORD:codesense-secret-key-2026}
+  token-encryptor-salt: ${TOKEN_ENCRYPTOR_SALT:deadbeefcafe1234}
+  indexing:
+    max-file-bytes: 102400

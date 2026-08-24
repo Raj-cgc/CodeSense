@@ -42,7 +42,7 @@ public class ChatStreamHandler {
         try {
             emitter.send(SseEmitter.event()
                     .name("user_message")
-                    .data(savedUserMessage));
+                    .data(savedUserMessage, MediaType.APPLICATION_JSON));
 
             ChatClient.builder(chatModel)
                     .build()
@@ -71,7 +71,7 @@ public class ChatStreamHandler {
         try {
             emitter.send(SseEmitter.event()
                     .name("token")
-                    .data(token, MediaType.APPLICATION_JSON));
+                    .data(token != null ? token : "", MediaType.TEXT_PLAIN));
         } catch (Exception ex) {
             throw new IllegalStateException(ex);
         }
@@ -92,8 +92,8 @@ public class ChatStreamHandler {
 
             emitter.send(SseEmitter.event()
                     .name("assistant_message")
-                    .data(toMessageResponse(assistant)));
-            emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+                    .data(toMessageResponse(assistant), MediaType.APPLICATION_JSON));
+            emitter.send(SseEmitter.event().name("done").data("[DONE]", MediaType.TEXT_PLAIN));
             emitter.complete();
         } catch (Exception ex) {
             emitter.completeWithError(ex);
