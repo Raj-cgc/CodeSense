@@ -1,13 +1,12 @@
-# Stage 1: Build JAR using Maven
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Stage 1: Build JAR using official Maven image (pre-installed, no download needed)
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x ./mvnw && ./mvnw dependency:go-offline -B
+COPY pom.xml ./
+RUN mvn dependency:go-offline -B || true
 COPY src ./src
-RUN ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests
 
-# Stage 2: Minimal runtime image
+# Stage 2: Minimal lightweight runtime image
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
