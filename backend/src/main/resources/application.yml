@@ -63,6 +63,14 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        name: CODESENSE_SESSION
+        same-site: none
+        secure: true
+        http-only: true
 
 app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
