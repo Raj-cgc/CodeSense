@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -44,19 +46,40 @@ public class IndexingService {
     @Value("${app.indexing.max-file-bytes:102400}")
     private long maxFileBytes;
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void cleanupStaleIndexingOnStartup() {
+        try {
+            int updated = repositoryRepository.updateStatusForOldStatus(
+                    IndexStatus.INDEXING,
+                    IndexStatus.FAILED,
+                    "Indexing was interrupted by a server restart. Please retry.");
+            if (updated > 0) {
+                log.info("Reset {} stale indexing jobs to FAILED on startup", updated);
+            }
+        } catch (Exception ex) {
+            log.warn("Could not clean up stale indexing jobs on startup: {}", ex.getMessage());
+        }
+    }
+
     public Repository startIndexing(UUID repoId, UUID userId) {
         Repository repo = repositoryRepository.findByIdAndUserId(repoId, userId)
                 .orElseThrow(() -> new NotFoundException("Repository not found"));
-
-        if (repo.getIndexStatus() == IndexStatus.INDEXING) {
-            throw new BadRequestException("Repository is already being indexed");
-        }
 
         repo.setIndexStatus(IndexStatus.INDEXING);
         repo.setFilesProcessed(0);
         repo.setFilesTotal(0);
         repo.setChunkCount(0);
         repo.setErrorMessage(null);
+        repo.setUpdatedAt(Instant.now());
+        return repositoryRepository.save(repo);
+    }
+
+    public Repository cancelIndexing(UUID repoId, UUID userId) {
+        Repository repo = repositoryRepository.findByIdAndUserId(repoId, userId)
+                .orElseThrow(() -> new NotFoundException("Repository not found"));
+
+        repo.setIndexStatus(IndexStatus.FAILED);
+        repo.setErrorMessage("Indexing cancelled by user");
         repo.setUpdatedAt(Instant.now());
         return repositoryRepository.save(repo);
     }

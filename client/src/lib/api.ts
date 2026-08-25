@@ -130,6 +130,8 @@ export const api = {
   getRepo: (id: string) => apiFetch<Repository>(`/api/repos/${id}`),
   startIndex: (id: string) =>
     apiFetch<Repository>(`/api/repos/${id}/index`, { method: "POST" }),
+  cancelIndex: (id: string) =>
+    apiFetch<Repository>(`/api/repos/${id}/cancel`, { method: "POST" }),
   indexStatus: (id: string) =>
     apiFetch<IndexStatusResponse>(`/api/repos/${id}/status`),
    createSession: (repositoryId: string, title?: string) =>

@@ -16,13 +16,14 @@ import { LanguageIcon } from "@/components/icons/language-icon";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { getRepoProgress, useStartIndexing } from "@/hooks/use-repos";
+import { getRepoProgress, useCancelIndexing, useStartIndexing } from "@/hooks/use-repos";
 import type { Repository } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export function RepoCard({ repo }: { repo: Repository }) {
   const navigate = useNavigate();
   const indexMutation = useStartIndexing();
+  const cancelMutation = useCancelIndexing();
   const isIndexing = repo.indexStatus === "INDEXING" || indexMutation.isPending;
   const isFailed = repo.indexStatus === "FAILED";
   const progress = getRepoProgress(repo);
@@ -140,6 +141,17 @@ export function RepoCard({ repo }: { repo: Repository }) {
         )}
 
         <div className="flex gap-2">
+          {isIndexing && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs text-muted-foreground hover:border-destructive/40 hover:text-destructive"
+              disabled={cancelMutation.isPending}
+              onClick={() => cancelMutation.mutate(repo.id)}
+            >
+              Cancel
+            </Button>
+          )}
           {repo.indexStatus === "READY" && (
             <Button variant="secondary" size="sm" onClick={openChat}>
               <MessageSquare data-icon="inline-start" />

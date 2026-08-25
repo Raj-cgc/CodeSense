@@ -1,6 +1,4 @@
-"use client";
-
-import { AlertCircle, Loader2, RotateCcw } from "lucide-react";
+import { AlertCircle, Loader2, RotateCcw, XCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +9,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Progress } from "@/components/ui/progress";
-import { getRepoProgress, useStartIndexing } from "@/hooks/use-repos";
+import { getRepoProgress, useCancelIndexing, useStartIndexing } from "@/hooks/use-repos";
 import type { IndexStatusResponse, Repository } from "@/lib/api";
 
 export function IndexingState({
@@ -22,6 +20,7 @@ export function IndexingState({
   status?: IndexStatusResponse;
 }) {
   const indexMutation = useStartIndexing();
+  const cancelMutation = useCancelIndexing();
   const filesProcessed = status?.filesProcessed ?? repo.filesProcessed;
   const filesTotal = status?.filesTotal ?? repo.filesTotal;
   const chunkCount = status?.chunkCount ?? repo.chunkCount;
@@ -65,11 +64,36 @@ export function IndexingState({
             : "Fetching repository files and preparing embeddings…"}
         </EmptyDescription>
       </EmptyHeader>
-      <div className="w-full max-w-sm space-y-2">
-        <Progress value={Math.max(progress, filesTotal ? progress : 12)} />
-        <p className="text-center text-xs text-muted-foreground">
-          You can leave this page open — chat unlocks when indexing finishes.
-        </p>
+      <div className="w-full max-w-sm space-y-4">
+        <div className="space-y-2">
+          <Progress value={Math.max(progress, filesTotal ? progress : 12)} />
+          <p className="text-center text-xs text-muted-foreground">
+            You can leave this page open — chat unlocks when indexing finishes.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={cancelMutation.isPending}
+            onClick={() => cancelMutation.mutate(repo.id)}
+            className="text-xs text-muted-foreground hover:text-destructive hover:border-destructive/30"
+          >
+            <XCircle data-icon="inline-start" />
+            Cancel Indexing
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={indexMutation.isPending}
+            onClick={() => indexMutation.mutate(repo.id)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw data-icon="inline-start" />
+            Force Restart
+          </Button>
+        </div>
       </div>
     </Empty>
   );

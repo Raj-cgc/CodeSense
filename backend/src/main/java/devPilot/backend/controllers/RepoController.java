@@ -54,10 +54,16 @@ public class RepoController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(repoService.toResponse(repo));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<RepositoryResponse> cancel(@PathVariable UUID id) {
+        UUID userId = currentUser.require().getId();
+        Repository repo = indexingService.cancelIndexing(id, userId);
+        return ResponseEntity.ok(repoService.toResponse(repo));
+    }
+
     @GetMapping("/{id}/status")
     public IndexStatusResponse status(@PathVariable UUID id) {
         UUID userId = currentUser.require().getId();
         return repoService.status(id, userId);
     }
-
 }

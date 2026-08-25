@@ -106,6 +106,33 @@ export function useStartIndexing() {
   });
 }
 
+export function useCancelIndexing() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (repoId: string) => api.cancelIndex(repoId),
+    onSuccess: (repo) => {
+      queryClient.setQueryData(queryKeys.repos.detail(repo.id), repo);
+      updateRepoInListCache(queryClient, repo);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.repos.status(repo.id),
+      });
+      toast.add({
+        title: "Indexing cancelled",
+        description: `Cancelled indexing for ${repo.fullName}`,
+        type: "info",
+      });
+    },
+    onError: (error: Error) => {
+      toast.add({
+        title: "Could not cancel indexing",
+        description: error.message,
+        type: "error",
+      });
+    },
+  });
+}
+
 export function useRefreshRepos() {
   const queryClient = useQueryClient();
 
