@@ -1,18 +1,26 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, Navigate } from "react-router-dom";
 
-import { useCurrentUser } from "@/hooks/use-auth";
+import { useCurrentUser, hasAuthIndicator, setAuthCookie } from "@/hooks/use-auth";
 import { Spinner } from "@/components/ui/spinner";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const hasAuth = hasAuthIndicator();
   const { data: user, isLoading, isError } = useCurrentUser();
-  const navigate = useNavigate();
+
+  const next = encodeURIComponent(location.pathname + location.search);
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      navigate("/login");
+    if (isError || (!isLoading && hasAuth && !user)) {
+      setAuthCookie(false);
     }
-  }, [isLoading, user, navigate]);
+  }, [isError, isLoading, hasAuth, user]);
+
+  // If there's no auth indicator at all, immediately redirect to login
+  if (!hasAuth) {
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
 
   if (isLoading) {
     return (
@@ -26,7 +34,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (isError || !user) {
-    return null;
+    return <Navigate to={`/login?next=${next}`} replace />;
   }
 
   return <>{children}</>;

@@ -90,24 +90,32 @@ export async function apiFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${getApiBaseUrl()}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!res.ok) {
-    throw new ApiError(res.status, await parseError(res));
+  try {
+    const res = await fetch(`${getApiBaseUrl()}${path}`, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
+
+    if (!res.ok) {
+      throw new ApiError(res.status, await parseError(res));
+    }
+
+    if (res.status === 204) {
+      return undefined as T;
+    }
+
+    return res.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  if (res.status === 204) {
-    return undefined as T;
-  }
-
-  return res.json() as Promise<T>;
 }
 
 export const api = {

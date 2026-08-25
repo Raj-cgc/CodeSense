@@ -6,7 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
-  const { data: user, isLoading, isFetched, refetch } = useCurrentUser();
+  const { data: user, isLoading, isFetched, refetch } = useCurrentUser(true);
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {

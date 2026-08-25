@@ -17,22 +17,23 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { getGithubLoginUrl } from "@/lib/api";
-import { useCurrentUser } from "@/hooks/use-auth";
+import { useCurrentUser, hasAuthIndicator } from "@/hooks/use-auth";
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const error = searchParams.get("error");
   const next = searchParams.get("next") || "/dashboard";
+  const hasAuth = hasAuthIndicator();
   const { data: user, isLoading } = useCurrentUser();
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (hasAuth && !isLoading && user) {
       navigate(next.startsWith("/") ? next : "/dashboard", { replace: true });
     }
-  }, [user, isLoading, next, navigate]);
+  }, [hasAuth, user, isLoading, next, navigate]);
 
-  if (isLoading) {
+  if (hasAuth && isLoading) {
     return (
       <div className="flex min-h-svh items-center justify-center">
         <Spinner className="size-8" />
