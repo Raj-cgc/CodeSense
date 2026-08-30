@@ -34,7 +34,7 @@ public class GeminiEmbeddingConfig {
     @Value("${spring.ai.google.genai.embedding.text.model:gemini-embedding-001}")
     private String modelName;
 
-    @Value("${spring.ai.google.genai.embedding.text.dimensions:768}")
+    @Value("${spring.ai.google.genai.embedding.text.dimensions:3072}")
     private Integer outputDimensions;
 
     @Bean
@@ -45,7 +45,7 @@ public class GeminiEmbeddingConfig {
 
     public static class GeminiEmbeddingModel extends AbstractEmbeddingModel {
 
-        private static final int DEFAULT_DIMENSIONS = 768;
+        private static final int DEFAULT_DIMENSIONS = 3072;
         private static final int MAX_BATCH_SIZE = 50;
         private static final int MAX_RETRIES = 8;
         private static final Pattern RETRY_DELAY_PATTERN = Pattern.compile("retry(?:Delay\"?\\s*:\\s*\"?|\\s+in\\s+)(\\d+(?:\\.\\d+)?)\\s*s", Pattern.CASE_INSENSITIVE);
