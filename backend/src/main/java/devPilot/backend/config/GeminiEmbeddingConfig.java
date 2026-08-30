@@ -31,34 +31,47 @@ public class GeminiEmbeddingConfig {
     @Value("${spring.ai.google.genai.api-key:}")
     private String apiKey;
 
-    @Value("${spring.ai.google.genai.embedding.text.model:text-embedding-004}")
+    @Value("${spring.ai.google.genai.embedding.text.model:gemini-embedding-001}")
     private String modelName;
+
+    @Value("${spring.ai.google.genai.embedding.text.dimensions:768}")
+    private Integer outputDimensions;
 
     @Bean
     @Primary
     public EmbeddingModel geminiEmbeddingModel() {
-        return new GeminiEmbeddingModel(apiKey, modelName);
+        return new GeminiEmbeddingModel(apiKey, modelName, outputDimensions);
     }
 
     public static class GeminiEmbeddingModel extends AbstractEmbeddingModel {
 
         private static final int DEFAULT_DIMENSIONS = 768;
         private static final int MAX_BATCH_SIZE = 50;
-        private static final int MAX_RETRIES = 5;
+        private static final int MAX_RETRIES = 8;
         private static final Pattern RETRY_DELAY_PATTERN = Pattern.compile("retry(?:Delay\"?\\s*:\\s*\"?|\\s+in\\s+)(\\d+(?:\\.\\d+)?)\\s*s", Pattern.CASE_INSENSITIVE);
 
         private static final String BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
         private final String apiKey;
         private final String model;
+        private final Integer outputDimensions;
         private final RestClient restClient;
         private volatile int detectedDimensions;
 
-        public GeminiEmbeddingModel(String apiKey, String model) {
+        public GeminiEmbeddingModel(String apiKey, String model, Integer outputDimensions) {
             this.apiKey = apiKey;
-            this.model = model != null && !model.isBlank() ? model : "text-embedding-004";
+            String sanitized = model != null && !model.isBlank() ? model.trim() : "gemini-embedding-001";
+            if (sanitized.startsWith("models/")) {
+                sanitized = sanitized.substring(7);
+            }
+            this.model = sanitized;
+            this.outputDimensions = (outputDimensions != null && outputDimensions > 0) ? outputDimensions : DEFAULT_DIMENSIONS;
             this.restClient = RestClient.builder().baseUrl(BASE_URL).build();
-            this.detectedDimensions = this.model.contains("gemini-embedding-001") ? 3072 : DEFAULT_DIMENSIONS;
+            this.detectedDimensions = this.outputDimensions;
+        }
+
+        public GeminiEmbeddingModel(String apiKey, String model) {
+            this(apiKey, model, DEFAULT_DIMENSIONS);
         }
 
         @Override
@@ -106,8 +119,7 @@ public class GeminiEmbeddingConfig {
                         }
                     } else {
                         log.error("Failed to generate Gemini batch embeddings after attempt {}/{}: {}", attempt + 1, MAX_RETRIES, ex.getMessage());
-                        // If batch failed, try single-item fallback as a last resort
-                        if (!isLastAttempt) {
+                        if (!isLastAttempt && isRetryable(ex)) {
                             try {
                                 return fetchSingleEmbeddingsFallback(texts);
                             } catch (Exception fallbackEx) {
@@ -125,10 +137,13 @@ public class GeminiEmbeddingConfig {
         private List<float[]> fetchBatchEmbeddings(List<String> texts) {
             List<Map<String, Object>> requestsList = new ArrayList<>(texts.size());
             for (String text : texts) {
-                requestsList.add(Map.of(
-                        "model", "models/" + model,
-                        "content", Map.of("parts", List.of(Map.of("text", text != null ? text : "")))
-                ));
+                Map<String, Object> reqItem = new java.util.HashMap<>();
+                reqItem.put("model", "models/" + model);
+                reqItem.put("content", Map.of("parts", List.of(Map.of("text", text != null ? text : ""))));
+                if (outputDimensions != null && outputDimensions > 0) {
+                    reqItem.put("outputDimensionality", outputDimensions);
+                }
+                requestsList.add(reqItem);
             }
 
             Map<String, Object> body = Map.of("requests", requestsList);
@@ -199,10 +214,12 @@ public class GeminiEmbeddingConfig {
 
         @SuppressWarnings("unchecked")
         private float[] fetchSingleEmbedding(String text) {
-            Map<String, Object> body = Map.of(
-                    "model", "models/" + model,
-                    "content", Map.of("parts", List.of(Map.of("text", text != null ? text : "")))
-            );
+            Map<String, Object> body = new java.util.HashMap<>();
+            body.put("model", "models/" + model);
+            body.put("content", Map.of("parts", List.of(Map.of("text", text != null ? text : ""))));
+            if (outputDimensions != null && outputDimensions > 0) {
+                body.put("outputDimensionality", outputDimensions);
+            }
 
             Map<String, Object> response = restClient.post()
                     .uri(uriBuilder -> uriBuilder
@@ -258,14 +275,14 @@ public class GeminiEmbeddingConfig {
             if (matcher.find()) {
                 try {
                     double seconds = Double.parseDouble(matcher.group(1));
-                    return Math.max((long) (seconds * 1000) + 1500, 2000L);
+                    return Math.max((long) (seconds * 1000) + 1500, 3000L);
                 } catch (Exception ignored) {
                 }
             }
 
-            // Exponential backoff: 3s, 6s, 12s, 24s, 48s + small jitter
-            long baseDelay = 3000L * (1L << attempt);
-            long jitter = (long) (Math.random() * 1000);
+            // Exponential backoff: 3s, 6s, 12s, 24s, 48s + jitter
+            long baseDelay = 3000L * (1L << Math.min(attempt, 5));
+            long jitter = (long) (Math.random() * 1500);
             return Math.min(baseDelay + jitter, 60000L);
         }
 
@@ -282,6 +299,9 @@ public class GeminiEmbeddingConfig {
 
         @Override
         public int dimensions() {
+            if (outputDimensions != null && outputDimensions > 0) {
+                return outputDimensions;
+            }
             return detectedDimensions > 0 ? detectedDimensions : DEFAULT_DIMENSIONS;
         }
     }

@@ -111,6 +111,7 @@ public class IndexingService {
         List<Document> batch = new ArrayList<>();
         int processed = 0;
         int totalChunks = 0;
+        int consecutiveFailures = 0;
 
         for (String path : filePaths) {
             try {
@@ -122,9 +123,20 @@ public class IndexingService {
                 if (batch.size() >= VECTOR_BATCH_SIZE) {
                     vectorStore.add(batch);
                     batch.clear();
+                    try {
+                        Thread.sleep(200);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
+                consecutiveFailures = 0;
             } catch (Exception ex) {
                 log.warn("Skipping file {} in {}: {}", path, repo.getFullName(), ex.getMessage());
+                batch.clear();
+                consecutiveFailures++;
+                if (consecutiveFailures >= 10 && totalChunks == 0) {
+                    throw new RuntimeException("Indexing aborted: failed to process embeddings for files. Last error: " + ex.getMessage(), ex);
+                }
             }
 
             processed++;
@@ -136,6 +148,7 @@ public class IndexingService {
 
         if (!batch.isEmpty()) {
             vectorStore.add(batch);
+            batch.clear();
         }
 
         markReady(repoId, filePaths.size(), processed, totalChunks, repo.getFullName());
