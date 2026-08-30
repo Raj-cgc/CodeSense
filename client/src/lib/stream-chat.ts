@@ -72,7 +72,15 @@ export async function streamChatMessage(
 
       try {
         if (event === "token") {
-          handlers.onToken?.(JSON.parse(data) as string);
+          let tokenStr = data;
+          if (data.startsWith('"') && data.endsWith('"')) {
+            try {
+              tokenStr = JSON.parse(data);
+            } catch {
+              tokenStr = data;
+            }
+          }
+          handlers.onToken?.(tokenStr);
         } else if (event === "user_message") {
           handlers.onUserMessage?.(JSON.parse(data) as ChatMessage);
         } else if (event === "assistant_message") {
@@ -81,6 +89,7 @@ export async function streamChatMessage(
           handlers.onDone?.();
         }
       } catch (err) {
+        console.error("SSE parse error for event:", event, err);
         handlers.onError?.(
           err instanceof Error ? err : new Error("Failed to parse SSE event")
         );
