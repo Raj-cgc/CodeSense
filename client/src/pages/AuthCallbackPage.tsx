@@ -18,11 +18,11 @@ export default function AuthCallbackPage() {
     }
 
     if (isFetched && !user) {
-      if (retryCount < 3) {
+      if (retryCount < 8) {
         const timer = setTimeout(() => {
           setRetryCount((prev) => prev + 1);
           void refetch();
-        }, 800);
+        }, 1200);
         return () => clearTimeout(timer);
       } else {
         navigate("/login?error=session", { replace: true });

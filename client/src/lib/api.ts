@@ -86,36 +86,65 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 90000;
+const MAX_RETRIES = 2;
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let lastError: Error | null = null;
+  const isIdempotent = !init?.method || init.method.toUpperCase() === "GET" || init.method.toUpperCase() === "HEAD";
+  const attempts = isIdempotent ? MAX_RETRIES + 1 : 1;
 
-  try {
-    const res = await fetch(`${getApiBaseUrl()}${path}`, {
-      ...init,
-      signal: init?.signal ?? controller.signal,
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    if (!res.ok) {
-      throw new ApiError(res.status, await parseError(res));
+    try {
+      const res = await fetch(`${getApiBaseUrl()}${path}`, {
+        ...init,
+        signal: init?.signal ?? controller.signal,
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(init?.headers ?? {}),
+        },
+      });
+
+      // Render cold start can return 502 or 503 while the instance wakes up
+      if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < attempts - 1) {
+        await wait(3000 * (attempt + 1));
+        continue;
+      }
+
+      if (!res.ok) {
+        throw new ApiError(res.status, await parseError(res));
+      }
+
+      if (res.status === 204) {
+        return undefined as T;
+      }
+
+      return res.json() as Promise<T>;
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // If aborted due to timeout or network glitch during cold start, retry idempotent requests
+      if (attempt < attempts - 1) {
+        await wait(3000 * (attempt + 1));
+        continue;
+      }
+      throw lastError;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    if (res.status === 204) {
-      return undefined as T;
-    }
-
-    return res.json() as Promise<T>;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError ?? new Error("Request failed after retries");
 }
 
 export const api = {

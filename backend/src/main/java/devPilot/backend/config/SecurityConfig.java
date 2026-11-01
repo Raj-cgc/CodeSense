@@ -41,6 +41,7 @@ public class SecurityConfig {
                                 "/api/auth/login-url",
                                 "/oauth2/**",
                                 "/login/oauth2/**",
+                                "/actuator/**",
                                 "/error")
                         .permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -59,7 +60,7 @@ public class SecurityConfig {
                                 response.setStatus(HttpStatus.NO_CONTENT.value()))
                         .invalidateHttpSession(true)
                         .clearAuthentication(true)
-                        .deleteCookies("DEVPILOT_SESSION"));
+                        .deleteCookies("CODESENSE_SESSION", "DEVPILOT_SESSION"));
 
         return http.build();
     }

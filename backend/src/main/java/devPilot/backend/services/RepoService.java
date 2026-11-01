@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,13 +35,20 @@ public class RepoService {
         String token = userService.decryptAccessToken(user);
         List<Map<String, Object>> remoteRepos = gitHubApiClient.listUserRepos(token);
 
-        List<Repository> saved = new ArrayList<>();
+        Map<Long, Repository> existingMap = repositoryRepository
+                .findByUserIdOrderByFullNameAsc(userId)
+                .stream()
+                .filter(r -> r.getGithubRepoId() != null)
+                .collect(Collectors.toMap(
+                        Repository::getGithubRepoId,
+                        Function.identity(),
+                        (existing, replacement) -> existing));
 
-          for (Map<String, Object> remote : remoteRepos) {
+        List<Repository> toSave = new ArrayList<>();
+
+        for (Map<String, Object> remote : remoteRepos) {
             Long githubRepoId = toLong(remote.get("id"));
-            Repository repo = repositoryRepository
-                    .findByUserIdAndGithubRepoId(userId, githubRepoId)
-                    .orElseGet(Repository::new);
+            Repository repo = existingMap.getOrDefault(githubRepoId, new Repository());
 
             String fullName = String.valueOf(remote.get("full_name"));
             String[] parts = fullName.split("/", 2);
@@ -62,10 +72,12 @@ public class RepoService {
                     repo.setOwner(String.valueOf(ownerMap.get("login")));
                 }
             }
-            saved.add(repositoryRepository.save(repo));
+            toSave.add(repo);
         }
-    
-         return saved.stream()
+
+        List<Repository> saved = repositoryRepository.saveAll(toSave);
+
+        return saved.stream()
                 .sorted((a, b) -> a.getFullName().compareToIgnoreCase(b.getFullName()))
                 .map(this::toResponse)
                 .toList();

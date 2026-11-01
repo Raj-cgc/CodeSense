@@ -7,16 +7,27 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:5}
+      minimum-idle: ${HIKARI_MIN_IDLE:1}
+      idle-timeout: 30000
+      max-lifetime: 60000
+      connection-timeout: 30000
+      validation-timeout: 5000
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
     show-sql: false
     open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
+        format_sql: false
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
 
   security:
     oauth2:
@@ -57,14 +68,21 @@ spring:
         host: ${QDRANT_HOST:your_qdrant_host}
         port: ${QDRANT_PORT:6334}
         api-key: ${QDRANT_API_KEY:your_qdrant_api_key}
-        use-tls: true
-        collection-name: codesense-code
-        initialize-schema: true
+        use-tls: ${QDRANT_USE_TLS:true}
+        collection-name: ${QDRANT_COLLECTION_NAME:codesense-code}
+        initialize-schema: false
         check-compatibility: false
 
 server:
-  port: ${PORT:8080}
+  address: 0.0.0.0
+  port: ${PORT:10000}
   forward-headers-strategy: framework
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:25}
+      min-spare: ${TOMCAT_MIN_SPARE:2}
+    accept-count: 20
+    max-connections: 100
   servlet:
     session:
       cookie:
@@ -72,6 +90,15 @@ server:
         same-site: none
         secure: true
         http-only: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
 
 app:
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}

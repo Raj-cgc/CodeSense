@@ -43,14 +43,22 @@ export function useCurrentUser(forceEnable = false) {
         const user = await api.me();
         setAuthCookie(true);
         return user;
-      } catch (error) {
-        setAuthCookie(false);
+      } catch (error: any) {
+        // Only clear auth indicator when explicitly unauthorized (401)
+        if (error?.status === 401) {
+          setAuthCookie(false);
+        }
         throw error;
       }
     },
     enabled: hasAuth || forceEnable,
     staleTime: 5 * 60 * 1000,
-    retry: false,
+    retry: (failureCount, error: any) => {
+      // Don't retry if definitively unauthorized
+      if (error?.status === 401) return false;
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 }
 
